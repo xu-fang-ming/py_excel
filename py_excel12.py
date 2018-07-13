@@ -1,12 +1,11 @@
 from openpyxl import load_workbook
-from openpyxl import Workbook
 from config import DIC_KEY
 
-file_path = "D:\data\输入家通.xlsx"
+# file_path = "D:\data\输入家通.xlsx"
 
 # file_path = "D:\data\余额表2.xlsx"
 
-# file_path = "D:\data\输入3.xlsx"
+file_path = "D:\data\余额表\输入16.xlsx"
 
 # file_path = r"D:\test_data\输入2.xlsx"
 
@@ -14,11 +13,18 @@ file_path = "D:\data\输入家通.xlsx"
 wb = load_workbook(filename=file_path)
 
 sheets = wb.sheetnames
+# 先判断科目余额表表是否在表中，如果不在，默认取第一个
+try:
+    ke_index = sheets.index('科目余额表')
+except:
+    ke_index = 0
+
+
 # 第一个表格的名称
-sheet_first = sheets[0]
+sheet_first = sheets[ke_index]
 
 # 获取特定的worksheet
-ws = wb[sheets[0]]
+ws = wb[sheets[ke_index]]
 
 row_num = ws.max_row  # 获取表的行数
 
@@ -67,6 +73,7 @@ def get_titles(worksheet, title_num):
         if i.value != None:
             i.value = str(i.value)
             title_names.append(i.value)
+
     return title_names
 
 
@@ -74,8 +81,6 @@ title_names = get_titles(ws, title_row)
 
 
 # 找到科目代码所对应列的索引
-
-
 def find_col(x):
     """
     找到对应的标题的列数
@@ -94,12 +99,7 @@ def find_col(x):
 km_col = find_col(km_names)
 
 
-# print(km_col)
-
-
 # 1.3先获取科目代码这一栏科目代码的的长度，并且去重排好序(并且去掉合计或者总计)
-
-
 def length_sort():
     """
     获取科目代码这一行的长度并且按长度排好序
@@ -156,7 +156,6 @@ ws[dic_num[column_num + 1] + str(title_row)] = '科目级次'
 ws[dic_num[column_num + 2] + str(title_row)] = '系统科目'
 
 # 二.根据关键字的匹配来确定查账系统匹配科目
-
 
 dic = DIC_KEY
 
@@ -241,11 +240,11 @@ more_km()
 
 # 3.3 根据该字典，来进行相应的判断
 
-start_debit_balance_names = ['期初借方余额', '期初余额(借方)']
-start_credit_balance_names = ['期初贷方余额', '期初余额(贷方)']
+start_debit_balance_names = ['期初借方余额', '期初余额(借方)', '期初借方']
+start_credit_balance_names = ['期初贷方余额', '期初余额(贷方)', '期初贷方']
 
-end_debit_balance_names = ['期末借方余额', '期末余额(借方)']
-end_credit_balance_names = ['期末贷方余额', '期末余额(贷方)']
+end_debit_balance_names = ['期末借方余额', '期末余额(借方)', '期末借方']
+end_credit_balance_names = ['期末贷方余额', '期末余额(贷方)', '期末贷方']
 
 end_debit_num = find_col(end_debit_balance_names)  # 找到期初借方余额的那一列
 end_credit_num = find_col(end_credit_balance_names)  # 找到期初贷方余额的那一列
@@ -365,6 +364,8 @@ start_end_balance('期末余额', 6, end_debit_num, end_credit_num)  # 确定期
 # 七.如果输入的表格中带有期间和月份的话，就只取12月份的
 month = ['月份', '期间']
 
+month_list = []
+
 
 def find_month():
     """
@@ -377,18 +378,19 @@ def find_month():
             month_num = title_row + 1
             for v in ws[col_list[month_index]][title_row:]:
                 if v.value != None:
-                    v.value = str(v.value)
-                    if v.value == '12':
-                        return month_num
+                    month_list.append(v.value)
+                    if v.value == 12:
+                        return month_num, month_index
                 month_num += 1
     else:
-        return 'no month'
+        return 'no month', None
 
 
-month_num = find_month()
+month_num, month_index = find_month()
 
-# print(month_num)
-
+# 找到所有月份的集合
+# start_month = month_list[0]
+# end_month = month_list[-1]
 
 # 八.按照一定的顺序对生成的数据排好序，写入到一个新的表格中去
 
@@ -408,8 +410,8 @@ dic_titles = {'科目代码': ['科目代码', '科目编码'], '科目名称': 
               '系统科目': ['系统科目'], '系统分类': ['系统分类'],
               '科目级次': ['科目级次'], '方向': ['方向'],
               '期初余额': ['期初余额'], '期初调整': ['期初调整'],
-              '审定期初': ['审定期初'], '本年借方累计': ['本年借方累计', '本年累计发生额(借方)', '借方累计'],
-              '本年贷方累计': ['本年贷方累计', '本年累计发生额(贷方)', '贷方累计'], '期末余额': ['期末余额'],
+              '审定期初': ['审定期初'], '本年借方累计': ['本年借方累计', '本年累计发生额(借方)', '借方累计', '本期发生借方'],
+              '本年贷方累计': ['本年贷方累计', '本年累计发生额(贷方)', '贷方累计', '本期发生贷方'], '期末余额': ['期末余额'],
               '期末调整': ['期末调整'], '审定期末': ['审定期末']
               }
 
@@ -422,16 +424,6 @@ for i in title_names:
 
 # 根据两个标题列表中对应的位置进行填充
 
-
-# for i in title_out_names:
-#     title_out_index = title_out_names.index(i)
-#     if i in title_names:
-#         title_index = title_names.index(i)
-#         num_out = 2
-#         for v in ws[col_list[title_index]][title_row:]:
-#             ws_out[col_list[title_out_index] + str(num_out)] = v.value
-#             num_out += 1
-
 if month_num == 'no month':
     for i in title_out_names:
         title_out_index = title_out_names.index(i)
@@ -442,7 +434,39 @@ if month_num == 'no month':
                 ws_out[col_list[title_out_index] + str(num_out)] = v.value
                 num_out += 1
 else:
+    # 构建两个字典，第一个月份和最后一个月份数据类型的一个字典
+    start_month_dict = {}
+    end_month_dict = {}
+    # 找到所有的第一个月和最后一个月份
+    start_month = month_list[0]
+    end_month = month_list[-1]
 
+    # 把最后一个月中的期初余额和方向替换成第一个月的
+    # 1.整理成特殊的数据格式
+    num2 = title_row + 1
+    for i in ws[col_list[month_index]][title_row:]:
+        if i.value == start_month:
+            start_month_dict[num2] = {'方向': '', '科目代码': '', '期初余额': ''}
+            start_month_dict[num2]['方向'] = ws[dic_num[column_num + 3] + str(num2)].value
+            start_month_dict[num2]['科目代码'] = ws[col_list[km_col] + str(num2)].value
+            start_month_dict[num2]['期初余额'] = ws[dic_num[column_num + 5] + str(num2)].value
+        if i.value == end_month:
+            end_month_dict[num2] = {'方向': '', '科目代码': '', '期初余额': ''}
+            end_month_dict[num2]['方向'] = ws[dic_num[column_num + 3] + str(num2)].value
+            end_month_dict[num2]['科目代码'] = ws[col_list[km_col] + str(num2)].value
+            end_month_dict[num2]['期初余额'] = ws[dic_num[column_num + 5] + str(num2)].value
+        num2 += 1
+
+    # 2.将需要替换的数据进行替换
+    for k, v in start_month_dict.items():
+        for k1, v1 in end_month_dict.items():
+            if v['科目代码'] == v1['科目代码']:
+                # 方向替换
+                ws[dic_num[column_num + 3] + str(k1)].value = ws[dic_num[column_num + 3] + str(k)].value
+                # 期初余额替换
+                ws[dic_num[column_num + 5] + str(k1)].value = ws[dic_num[column_num + 5] + str(k)].value
+
+    # 把最后一个月的数据全部取下来写入到新表当中去
     for i in title_out_names:
         title_out_index = title_out_names.index(i)
         if i in title_names:
@@ -452,12 +476,9 @@ else:
                 ws_out[col_list[title_out_index] + str(num_out)] = v.value
                 num_out += 1
 
-# wb_out.save("D:\data\标准3.xlsx")
+# wb_out.save("D:\data\输出3_2.xlsx")
 
 
-# wb_out.save("D:\data\余额3.xlsx")
 
-# wb_out.save("D:\data\输出家通1.xlsx")
 
-# wb_out.save(r"D:\test_data\输出2.xlsx")
-# wb_out.save("D:\data\输出66.xlsx")
+wb_out.save("D:\data\余额表\输出16.xlsx")
