@@ -5,7 +5,7 @@ from config import DIC_KEY
 
 # file_path = "D:\data\余额表2.xlsx"
 
-file_path = "D:\data\余额表\输入16.xlsx"
+file_path = "D:\data\输入3.xlsx"
 
 # file_path = r"D:\test_data\输入2.xlsx"
 
@@ -18,7 +18,6 @@ try:
     ke_index = sheets.index('科目余额表')
 except:
     ke_index = 0
-
 
 # 第一个表格的名称
 sheet_first = sheets[ke_index]
@@ -333,17 +332,22 @@ def start_end_balance(name, num, debit, credit):
                         kmdm_value = str(kmdm_value)
                         num1 = 1
                         if len(kmdm_value) == len_list[0]:
-                            for i in ws[col_list[km_col]]:
-                                i.value = str(i.value)
-                                if kmdm_value in i.value:
+                            for v in ws[col_list[km_col]]:
+                                v.value = str(v.value)
+                                if kmdm_value in v.value:
                                     ws[dic_num[column_num + num] + str(num1)] = float(
                                         (ws[col_list[credit] + str(
                                             num1)]).value) - float(
                                         (ws[col_list[debit] + str(num1)]).value)
+
+
                                 num1 += 1
 
-                        ws[dic_num[column_num + num] + str(start_balance_num)] = float((ws[col_list[credit] + str(
-                            start_balance_num)]).value) - float((ws[col_list[debit] + str(start_balance_num)]).value)
+                        # 2.如果二级科目中含有累计，准备，则不需要进行反转
+                        else:
+                            ws[dic_num[column_num + num] + str(start_balance_num)] = float((ws[col_list[debit] + str(
+                                start_balance_num)]).value) - float(
+                                (ws[col_list[credit] + str(start_balance_num)]).value)
                 elif i.value == '负债':
                     ws[dic_num[column_num + num] + str(start_balance_num)] = float((ws[col_list[credit] + str(
                         start_balance_num)]).value) - float((ws[col_list[debit] + str(start_balance_num)]).value)
@@ -452,20 +456,30 @@ else:
             start_month_dict[num2]['期初余额'] = ws[dic_num[column_num + 5] + str(num2)].value
         if i.value == end_month:
             end_month_dict[num2] = {'方向': '', '科目代码': '', '期初余额': ''}
-            end_month_dict[num2]['方向'] = ws[dic_num[column_num + 3] + str(num2)].value
+            # end_month_dict[num2]['方向'] = ws[dic_num[column_num + 3] + str(num2)].value
+            end_month_dict[num2]['方向'] = '平'
+            ws[dic_num[column_num + 3] + str(num2)] = '平'  # 把最后一个月的方向全部先定义为平
             end_month_dict[num2]['科目代码'] = ws[col_list[km_col] + str(num2)].value
-            end_month_dict[num2]['期初余额'] = ws[dic_num[column_num + 5] + str(num2)].value
+            # end_month_dict[num2]['期初余额'] = ws[dic_num[column_num + 5] + str(num2)].value
+            end_month_dict[num2]['期初余额'] = 0
+            ws[dic_num[column_num + 5] + str(num2)] = 0  # 把最后一个月的期初余额全部先全部赋值为0
         num2 += 1
+
 
     # 2.将需要替换的数据进行替换
     for k, v in start_month_dict.items():
         for k1, v1 in end_month_dict.items():
             if v['科目代码'] == v1['科目代码']:
                 # 方向替换
-                ws[dic_num[column_num + 3] + str(k1)].value = ws[dic_num[column_num + 3] + str(k)].value
+                # ws[dic_num[column_num + 3] + str(k1)].value = ws[dic_num[column_num + 3] + str(k)].value
+                ws[dic_num[column_num + 3] + str(k1)] = v['方向']
                 # 期初余额替换
-                ws[dic_num[column_num + 5] + str(k1)].value = ws[dic_num[column_num + 5] + str(k)].value
-
+                # ws[dic_num[column_num + 5] + str(k1)].value = ws[dic_num[column_num + 5] + str(k)].value
+                ws[dic_num[column_num + 5] + str(k1)] = v['期初余额']
+            # else:
+            #     # 如果最后一个月中存在，第一个月不存在，则方向一律写平，期初余额写为0
+            #     ws[dic_num[column_num + 3] + str(k1)] = '平'
+            #     ws[dic_num[column_num + 5] + str(k1)] = 0
     # 把最后一个月的数据全部取下来写入到新表当中去
     for i in title_out_names:
         title_out_index = title_out_names.index(i)
@@ -476,9 +490,53 @@ else:
                 ws_out[col_list[title_out_index] + str(num_out)] = v.value
                 num_out += 1
 
-# wb_out.save("D:\data\输出3_2.xlsx")
+# 填写好审定期初和审定期末
+
+km_result_index = title_out_names.index('科目代码')
+result_start_index = title_out_names.index('审定期初')
+result_end_index = title_out_names.index('审定期末')
+adjust_start_index = title_out_names.index('期初调整')
+adjust_end_index = title_out_names.index('期末调整')
+balance_start_index = title_out_names.index('期初余额')
+balance_end_index = title_out_names.index('期末余额')
 
 
+# 先对余额和调整的数据进行处理，没有数据的按0填充（包括期初和期末）
 
 
-wb_out.save("D:\data\余额表\输出16.xlsx")
+# 将审定期初和审定期末给计算出来
+# num_balance = 1
+# for i in ws_out[col_list[balance_start_index]][1:]:
+#     adjust_start_value = ws_out[col_list[adjust_start_index] + str(num_balance)].value
+#     if adjust_start_value == None:
+#         ws_out[col_list[adjust_start_index] + str(num_balance)] = 0
+#         ws_out[col_list[result_start_index] + str(num_balance)] = ws_out[col_list[result_start_index] + str(
+#             num_balance)].value + ws_out[col_list[adjust_start_index] + str(num_balance)].value
+#     num_balance += 1
+
+
+def opera_result(balance,adjust,result):
+
+    num_balance = 1
+    for i in ws_out[col_list[balance]][1:]:
+        adjust_value = ws_out[col_list[adjust] + str(num_balance+1)].value
+        balance_vlaue = i.value
+        if adjust_value == None:
+            ws_out[col_list[adjust] + str(num_balance+1)] = 0
+        if balance_vlaue == None:
+            i.value = 0
+        ws_out[col_list[result] + str(num_balance+1)] = float(i.value) + float(ws_out[col_list[adjust] + str(num_balance+1)].value)
+        num_balance += 1
+
+# 审定期初结果
+
+
+opera_result(balance_start_index, adjust_start_index, result_start_index)
+
+# 审定期末结果
+opera_result(balance_end_index, adjust_end_index, result_end_index)
+
+# wb_out.save("D:\data\输出家通.xlsx")
+
+
+wb_out.save("D:\data\输出3.2.xlsx")
